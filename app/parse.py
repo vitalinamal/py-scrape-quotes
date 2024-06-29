@@ -33,21 +33,30 @@ def parse_single_quote(quote_soup: BeautifulSoup) -> Quote:
     )
 
 
+def parse_author(author_soup: BeautifulSoup) -> Author:
+    """Parse an author from the BeautifulSoup object."""
+    return Author(
+        name=author_soup.select_one(".author-title").text,
+        born_date=author_soup.select_one(".author-born-date").text,
+        born_location=author_soup.select_one(
+            ".author-born-location"
+        ).text[3:],
+        description=author_soup.select_one(".author-description").text,
+    )
+
+
+def fetch_html(url: str) -> BeautifulSoup:
+    response = requests.get(url)
+    return BeautifulSoup(response.content, "html.parser")
+
+
 def get_author_bio(author_page: str) -> Author:
     """Fetch and parse author biography from the given URL."""
     try:
-        response = requests.get(author_page)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = fetch_html(author_page)
         author_soup = soup.select_one(".author-details")
-        return Author(
-            name=author_soup.select_one(".author-title").text,
-            born_date=author_soup.select_one(".author-born-date").text,
-            born_location=author_soup.select_one(
-                ".author-born-location"
-            ).text[3:],
-            description=author_soup.select_one(".author-description").text,
-        )
+        return parse_author(author_soup)
+
     except (requests.RequestException, AttributeError) as e:
         print(f"Error fetching author bio from {author_page}: {e}")
         return Author(name="", born_date="", born_location="", description="")
@@ -56,9 +65,7 @@ def get_author_bio(author_page: str) -> Author:
 def get_next_page(current_url: str) -> Optional[str]:
     """Get the URL of the next page if it exists."""
     try:
-        response = requests.get(current_url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = fetch_html(current_url)
         next_link = soup.select_one("li.next a")
         if next_link:
             next_page_url = next_link["href"]
@@ -72,9 +79,7 @@ def get_next_page(current_url: str) -> Optional[str]:
 def get_single_page_quotes(page_url: str) -> List[Quote]:
     """Fetch and parse quotes from a single page."""
     try:
-        response = requests.get(page_url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = fetch_html(page_url)
         quotes = soup.select(".quote")
         return [parse_single_quote(quote_soup) for quote_soup in quotes]
     except requests.RequestException as e:
